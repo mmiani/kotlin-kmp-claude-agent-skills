@@ -60,7 +60,20 @@ To avoid wasting context on low-risk files:
 6. Be specific: cite file:line, explain the problem, suggest the fix
 7. Check if any findings match patterns in pipeline memory — if so, flag them as recurring
 
+## Context Filtering
+The reviewer produces two output views — a **full output** for metrics/memory and a **filtered output** for the fixer. This prevents the fixer from wasting context on passing files, strengths, and minor issues it won't act on.
+
+### Filtered output (passed to fixer)
+Only includes actionable data:
+- `findings.blockers` and `findings.major` (the fixer never acts on minor)
+- `verdict`
+- `recurring_patterns` (so the fixer knows which fixes have historical precedent)
+
+Do NOT pass to fixer: `files_reviewed`, `strengths`, `findings.minor`, `skills_loaded`.
+
 ## Output Format
+
+### Full output (for pipeline metrics and memory)
 ```json
 {
   "ticket_id": "TICKET-ID",
@@ -83,6 +96,23 @@ To avoid wasting context on low-risk files:
   "recurring_patterns": ["CancellationException swallowed (seen in 3 of last 5 runs)"],
   "skills_loaded": ["kotlin-project-architecture-review", "kotlin-kmp-code-review"],
   "verdict": "APPROVE | REQUEST_CHANGES | BLOCK"
+}
+```
+
+### Filtered output (passed to fixer)
+```json
+{
+  "ticket_id": "TICKET-ID",
+  "findings": {
+    "blockers": [
+      {"id": "B1", "category": "coroutines", "file": "File.kt", "line": 42, "description": "...", "suggested_fix": "..."}
+    ],
+    "major": [
+      {"id": "M1", "category": "architecture", "file": "File.kt", "line": 15, "description": "...", "impact": "..."}
+    ]
+  },
+  "recurring_patterns": ["CancellationException swallowed (seen in 3 of last 5 runs)"],
+  "verdict": "BLOCK | REQUEST_CHANGES"
 }
 ```
 

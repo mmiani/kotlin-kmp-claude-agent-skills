@@ -74,8 +74,8 @@ Five specialized agents work together in a structured pipeline. Agents communica
 | **Planner** | Analyzes tickets, inspects the codebase, loads pipeline memory, and produces structured plans with scope metadata | [`agents/planner.md`](agents/planner.md) |
 | **Implementer** | Executes approved plans, loads diff-aware skills, respects memory constraints from past runs | [`agents/implementer.md`](agents/implementer.md) |
 | **Validator** | Parallel escalating validation (metadata → android + tests + detekt concurrently → cross-module) | [`agents/validator.md`](agents/validator.md) |
-| **Reviewer** | Cost-aware code review with file priority tiers, 10 categories, and recurring pattern detection | [`agents/reviewer.md`](agents/reviewer.md) |
-| **Fixer** | Targeted fixes with confidence scoring and human-review flagging for uncertain fixes | [`agents/fixer.md`](agents/fixer.md) |
+| **Reviewer** | Cost-aware code review with file priority tiers, context-filtered output, 10 categories, and recurring pattern detection | [`agents/reviewer.md`](agents/reviewer.md) |
+| **Fixer** | Targeted fixes with confidence scoring, strategy reuse from pipeline memory, self-validation, and human-review flagging | [`agents/fixer.md`](agents/fixer.md) |
 
 ### 10-Phase Execution Pipeline
 
@@ -110,7 +110,13 @@ Phase 10: OUTPUT       → Generate PR-ready summary with review stats
 
 **Fixer confidence scoring** — the fixer reports confidence (high/medium/low) for each fix. Low-confidence fixes pause the pipeline for human input instead of guessing.
 
-**Metrics tracking** — every run writes to `.claude/pipeline-metrics.json` with timing, findings, fix counts, and iteration data. Over time, this reveals patterns like average review iterations and first-pass approval rate.
+**Context filtering at handoffs** — the reviewer produces a full output (for metrics/memory) and a filtered output (for the fixer). The fixer only receives blockers and major findings — no minor issues, strengths, or file review lists. This reduces context usage by 30-50% on the reviewer→fixer handoff and keeps the fixer focused on actionable work.
+
+**Fix strategy reuse** — successful fix approaches are stored in pipeline memory indexed by error category. When the fixer encounters a familiar error pattern, it reuses a proven strategy instead of reasoning from scratch. Strategies track success rates and are pruned if they drop below 50% after 5+ applications.
+
+**Fixer self-validation** — after applying each fix, the fixer runs a quick compilation check (`compileCommonMainKotlinMetadata`) before handing off to the full validator. This catches obvious regressions immediately, saving a full validation cycle when a fix introduces a new error.
+
+**Metrics tracking** — every run writes to `.claude/pipeline-metrics.json` with timing, findings, fix counts, strategy reuse stats, and iteration data. Over time, this reveals patterns like average review iterations and first-pass approval rate.
 
 ### Validation Hooks
 

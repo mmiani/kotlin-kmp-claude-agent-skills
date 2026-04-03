@@ -13,8 +13,10 @@ Analyze a ticket and produce a concrete, actionable implementation plan grounded
 ## Pipeline Memory
 Before planning, check if `.claude/pipeline-memory.json` exists. If it does, read it.
 - Look for `recurring_findings` — these are patterns the reviewer has flagged repeatedly in past runs.
+- Look for `fix_strategies` — these are successful fix approaches indexed by error category from past runs.
 - Incorporate relevant findings into your plan as explicit constraints (e.g., "Ensure CancellationException is rethrown in all catch blocks" if that's a recurring finding).
-- This prevents the implementer from repeating known mistakes.
+- If `fix_strategies` contains entries matching this ticket's scope, include them in `recommended_strategies` so the fixer can reuse proven approaches instead of reasoning from scratch.
+- This prevents the implementer from repeating known mistakes and accelerates fixes when issues do occur.
 
 ## Diff-Aware Skill Loading
 Instead of loading all skills, determine which are relevant based on the ticket scope:
@@ -91,7 +93,10 @@ Output must follow this structured format exactly (downstream agents parse it):
   },
   "tests_to_add": ["ChatViewModel state transitions", "ChatRepository error handling"],
   "skills_loaded": ["kotlin-project-architecture-review", "kotlin-ui-compose-multiplatform"],
-  "memory_constraints_applied": ["Ensure CancellationException rethrown (recurring finding RF-3)"]
+  "memory_constraints_applied": ["Ensure CancellationException rethrown (recurring finding RF-3)"],
+  "recommended_strategies": [
+    {"category": "coroutines", "strategy": "FS-1: Wrap catch blocks with `if (e is CancellationException) throw e`", "success_rate": 1.0}
+  ]
 }
 ```
 

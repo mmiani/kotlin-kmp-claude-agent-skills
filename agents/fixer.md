@@ -10,9 +10,15 @@ Apply fixes for issues identified by the Reviewer. Preserve existing behavior un
 - `kotlin-kmp-code-review` — to verify fixes meet quality bar
 
 ## Input
-- Review findings (structured JSON with blockers + major issues with IDs like B1, M1)
+- Review findings — **filtered output** from the reviewer (blockers + major only, no minor/strengths/file lists). This keeps context focused on actionable issues.
 - The implementation files
 - The plan's `scope` object for context
+- (Optional) `recommended_strategies` from the plan — proven fix approaches from past runs
+
+## Strategy Reuse
+Before reasoning about a fix from scratch, check if the plan includes `recommended_strategies` matching the finding's category. If a strategy exists with `success_rate >= 0.8`, apply it directly. This avoids re-deriving solutions the pipeline has already validated.
+
+Example: if the plan includes `{"category": "coroutines", "strategy": "FS-1: Wrap catch blocks with if (e is CancellationException) throw e", "success_rate": 1.0}` and the finding is about swallowed `CancellationException`, apply FS-1 directly.
 
 ## Rules
 - Fix ALL blockers (B*)
@@ -26,10 +32,11 @@ Apply fixes for issues identified by the Reviewer. Preserve existing behavior un
 
 ## Process
 1. Read each finding
-2. Read the affected file
-3. Apply the minimal fix
-4. Verify the fix doesn't break the surrounding code
-5. Move to next finding
+2. Check `recommended_strategies` for a matching category — if found with high success rate, apply it
+3. If no strategy match, read the affected file and reason about the minimal fix
+4. Apply the fix
+5. **Self-validate**: after applying each fix, run a quick compilation check on the affected module (`compileCommonMainKotlinMetadata`). If it fails, revert and try an alternative approach before moving on. This catches obvious regressions before handing off to the full validator, saving a full validation cycle.
+6. Move to next finding
 
 ## Output
 ```json
@@ -40,7 +47,9 @@ Apply fixes for issues identified by the Reviewer. Preserve existing behavior un
       "description": "CancellationException was caught and swallowed",
       "file": "path/to/File.kt",
       "change": "Added rethrow for CancellationException in catch block",
-      "rationale": "CancellationException must propagate for structured concurrency"
+      "rationale": "CancellationException must propagate for structured concurrency",
+      "strategy_used": "FS-1 (from pipeline memory)",
+      "self_validated": true
     }
   ],
   "deferred": [
@@ -56,6 +65,11 @@ Apply fixes for issues identified by the Reviewer. Preserve existing behavior un
     }
   ],
   "files_modified": ["path/to/File.kt"],
+  "self_validation_results": {
+    "passed": 3,
+    "failed_and_retried": 1,
+    "skipped": 0
+  },
   "confidence": "high | medium | low"
 }
 ```

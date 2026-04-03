@@ -88,7 +88,9 @@ Read the agent definition at `agents/reviewer.md` and follow its process.
 
 #### FIX
 Read the agent definition at `agents/fixer.md` and follow its rules.
-- Pass the reviewer's structured findings (JSON).
+- Pass the reviewer's **filtered output** (blockers + major only — do NOT pass minor findings, strengths, or file review lists). This keeps the fixer focused on actionable issues and reduces context usage.
+- Pass `recommended_strategies` from the plan so the fixer can reuse proven fix approaches.
+- The fixer runs self-validation (quick `compileCommonMainKotlinMetadata`) after each fix before handing off. This catches obvious regressions early and saves a full validation cycle.
 - The fixer reports confidence level for its fixes.
 - If confidence is **low**: flag for the user and pause for input.
 - Collect structured fix output (JSON).
@@ -109,6 +111,8 @@ Record in metrics:
     "findings_per_iteration": [{"blockers": 2, "major": 1}, {"blockers": 0, "major": 0}],
     "final_verdict": "APPROVE",
     "total_fixes_applied": 3,
+    "strategies_reused": 1,
+    "self_validation": {"passed": 3, "failed_and_retried": 0},
     "deferred": 0,
     "flagged_for_human": 0
   }
@@ -140,7 +144,7 @@ Write the completed metrics to `METRICS_FILE`:
 ```
 
 ### Update Pipeline Memory
-Read existing `MEMORY_FILE` (or create it). Update the `recurring_findings` based on this run:
+Read existing `MEMORY_FILE` (or create it). Update `recurring_findings` and `fix_strategies` based on this run:
 
 ```json
 {
@@ -164,6 +168,28 @@ Read existing `MEMORY_FILE` (or create it). Update the `recurring_findings` base
       "severity": "minor"
     }
   ],
+  "fix_strategies": [
+    {
+      "id": "FS-1",
+      "category": "coroutines",
+      "pattern": "CancellationException swallowed in catch block",
+      "strategy": "Wrap catch blocks with `if (e is CancellationException) throw e`",
+      "times_applied": 4,
+      "times_succeeded": 4,
+      "success_rate": 1.0,
+      "last_used": "KMP-34"
+    },
+    {
+      "id": "FS-2",
+      "category": "ui",
+      "pattern": "Hardcoded dp values",
+      "strategy": "Replace with design system spacing tokens (e.g., Spacing.medium)",
+      "times_applied": 2,
+      "times_succeeded": 2,
+      "success_rate": 1.0,
+      "last_used": "KMP-31"
+    }
+  ],
   "success_rate": {
     "first_pass_approve": 0.4,
     "approve_within_3_iterations": 0.93,
@@ -173,9 +199,20 @@ Read existing `MEMORY_FILE` (or create it). Update the `recurring_findings` base
 ```
 
 Rules for updating memory:
+
+**Recurring findings:**
 - If a finding matches an existing pattern (same category + similar description), increment `occurrences` and update `last_seen`.
 - If a finding is new and has severity blocker or major, add it to `recurring_findings`.
 - Remove patterns that haven't been seen in the last 10 runs (they may have been fixed at the architecture level).
+
+**Fix strategies:**
+- When the fixer successfully resolves a finding (confirmed by re-validation), record the strategy in `fix_strategies`.
+- If a strategy already exists for the same category + pattern, increment `times_applied` and `times_succeeded` (or only `times_applied` if the fix needed revision).
+- Update `success_rate` = `times_succeeded / times_applied`.
+- The planner reads these strategies and passes high-success-rate ones to the fixer as `recommended_strategies`, enabling strategy reuse across runs.
+- Prune strategies with `success_rate < 0.5` after 5+ applications — they're not reliable.
+
+**Success rate:**
 - Update `success_rate` based on cumulative data.
 
 ## Phase 10: OUTPUT
