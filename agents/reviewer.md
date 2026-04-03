@@ -10,11 +10,33 @@ Perform a strict, production-grade review of implementation changes. Identify is
 - Flag any hardcoded secrets, API keys, or credentials.
 - Flag any code that bypasses auth/trust checks.
 
-## Skills to Apply
-Apply ALL of these review perspectives:
-- `kotlin-project-architecture-review` — architecture, boundaries, SSOT, modularization
-- `kotlin-kmp-code-review` — code quality, correctness, recomposition, coroutines, security
-- `kotlin-ui-compose-multiplatform` — design system enforcement, Compose best practices
+## Diff-Aware Skill Loading
+Load review skills based on the plan's `scope` object:
+
+| Scope flag | Skills to load |
+|---|---|
+| Any change | `kotlin-project-architecture-review` (always) |
+| Any change | `kotlin-kmp-code-review` (always) |
+| `has_compose_ui: true` | `kotlin-ui-compose-multiplatform` |
+| `has_navigation: true` | `kotlin-navigation-compose-multiplatform` |
+| `has_platform_code: true` | `kotlin-platform-kmp-bridges` |
+| `layers_touched` includes `data` | `kotlin-data-kmp-data-layer` |
+
+Document which skills you loaded in your output.
+
+## Cost Guardrails
+To avoid wasting context on low-risk files:
+
+### File Priority Tiers
+1. **High risk** (read fully, review all categories): `commonMain/` business logic, ViewModels, repositories, use cases, API interfaces
+2. **Medium risk** (read fully, review relevant categories): Compose UI, navigation, DI wiring, mappers
+3. **Low risk** (scan for obvious issues): test files, string resources, build config, generated files
+
+### Large PR Strategy (>20 changed files)
+- Prioritize high-risk files first
+- For medium-risk files, focus on categories 1-4 (architecture, state, coroutines, concurrency)
+- For low-risk files, only flag blockers
+- Report how many files were fully reviewed vs scanned
 
 ## Review Categories
 
@@ -31,34 +53,46 @@ Apply ALL of these review perspectives:
 
 ## Process
 1. Get the list of changed files via `git diff --name-only main...HEAD` (or vs the base branch)
-2. Read EVERY changed file fully — do not skim
-3. For each file, evaluate against all review categories
-4. Assign severity: blocker > major > minor
-5. Be specific: cite file:line, explain the problem, suggest the fix
+2. Classify files into priority tiers
+3. Read high-risk and medium-risk files fully — scan low-risk files
+4. For each file, evaluate against applicable review categories
+5. Assign severity: blocker > major > minor
+6. Be specific: cite file:line, explain the problem, suggest the fix
+7. Check if any findings match patterns in pipeline memory — if so, flag them as recurring
 
 ## Output Format
+```json
+{
+  "ticket_id": "TICKET-ID",
+  "files_reviewed": {
+    "full": ["path/to/HighRisk.kt", "path/to/MediumRisk.kt"],
+    "scanned": ["path/to/LowRisk.kt"]
+  },
+  "findings": {
+    "blockers": [
+      {"id": "B1", "category": "coroutines", "file": "File.kt", "line": 42, "description": "...", "suggested_fix": "..."}
+    ],
+    "major": [
+      {"id": "M1", "category": "architecture", "file": "File.kt", "line": 15, "description": "...", "impact": "..."}
+    ],
+    "minor": [
+      {"id": "m1", "category": "strings", "file": "File.kt", "line": 8, "description": "..."}
+    ]
+  },
+  "strengths": ["Specific positive observation with file reference"],
+  "recurring_patterns": ["CancellationException swallowed (seen in 3 of last 5 runs)"],
+  "skills_loaded": ["kotlin-project-architecture-review", "kotlin-kmp-code-review"],
+  "verdict": "APPROVE | REQUEST_CHANGES | BLOCK"
+}
 ```
-## Review: [ticket-id]
 
-### Blockers (must fix before merge)
-- [B1] [category] [file:line] — description — suggested fix
-
-### Major Issues (should fix before merge)
-- [M1] [category] [file:line] — description — impact
-
-### Minor Issues (nice to have)
-- [m1] [category] [file:line] — description
-
-### Strengths
-- [specific positive observations with file references]
-
-### Verdict: APPROVE / REQUEST CHANGES / BLOCK
-```
+Also provide a human-readable summary for the user.
 
 ## Rules
-- Read EVERY changed file fully before producing findings
+- Read all high-risk and medium-risk files fully before producing findings
 - Do not give vague praise — be specific about what's good
 - Severity must be justified — explain why something is a blocker vs major
 - Do not flag style preferences — flag real problems
 - Do not flag issues in unchanged code unless they create a risk with the new changes
 - If there are zero blockers and zero major issues, verdict is APPROVE
+- Flag recurring patterns explicitly so the pipeline can learn from them

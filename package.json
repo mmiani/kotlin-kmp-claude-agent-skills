@@ -1,0 +1,37 @@
+{
+  "name": "kotlin-kmp-agent-skills",
+  "version": "1.0.0",
+  "description": "AI agent skills, orchestration pipeline, and workflows for Kotlin Multiplatform projects",
+  "type": "module",
+  "bin": {
+    "kotlin-kmp-agent-skills": "bin/install.mjs"
+  },
+  "files": [
+    "bin/",
+    "agents/",
+    "commands/",
+    "hooks/",
+    "skills/",
+    "settings.json",
+    "settings.local.json",
+    ".github/"
+  ],
+  "keywords": [
+    "kotlin",
+    "kmp",
+    "kotlin-multiplatform",
+    "compose-multiplatform",
+    "claude",
+    "claude-code",
+    "ai-agent",
+    "skills",
+    "code-review",
+    "orchestration"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marianomiani/kotlin-kmp-agent-skills"
+  },
+  "license": "Apache-2.0",
+  "author": "Mariano Miani"
+}

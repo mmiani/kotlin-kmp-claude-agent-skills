@@ -67,32 +67,50 @@ Beyond individual skills, this repository includes a full **agent pipeline** for
 
 ### Agent Pipeline
 
-Five specialized agents work together in a structured pipeline:
+Five specialized agents work together in a structured pipeline. Agents communicate via structured JSON contracts and load skills dynamically based on what changed.
 
 | Agent | Role | Definition |
 |-------|------|------------|
-| **Planner** | Analyzes tickets, inspects the codebase, and produces structured implementation plans | [`agents/planner.md`](agents/planner.md) |
-| **Implementer** | Executes approved plans by writing production-grade code that fits existing architecture | [`agents/implementer.md`](agents/implementer.md) |
-| **Validator** | Verifies builds pass using an escalating strategy (metadata → Android → tests → detekt) | [`agents/validator.md`](agents/validator.md) |
-| **Reviewer** | Performs strict code review across 10 dimensions (architecture, coroutines, KMP, security, etc.) | [`agents/reviewer.md`](agents/reviewer.md) |
-| **Fixer** | Applies minimal, targeted fixes for blockers and major issues found by the reviewer | [`agents/fixer.md`](agents/fixer.md) |
+| **Planner** | Analyzes tickets, inspects the codebase, loads pipeline memory, and produces structured plans with scope metadata | [`agents/planner.md`](agents/planner.md) |
+| **Implementer** | Executes approved plans, loads diff-aware skills, respects memory constraints from past runs | [`agents/implementer.md`](agents/implementer.md) |
+| **Validator** | Parallel escalating validation (metadata → android + tests + detekt concurrently → cross-module) | [`agents/validator.md`](agents/validator.md) |
+| **Reviewer** | Cost-aware code review with file priority tiers, 10 categories, and recurring pattern detection | [`agents/reviewer.md`](agents/reviewer.md) |
+| **Fixer** | Targeted fixes with confidence scoring and human-review flagging for uncertain fixes | [`agents/fixer.md`](agents/fixer.md) |
 
-### 9-Phase Execution Pipeline
+### 10-Phase Execution Pipeline
 
 The [`execute-ticket`](commands/execute-ticket.md) command orchestrates a full ticket lifecycle:
 
 ```
-Phase 1: BRANCH       → Create feature branch from ticket ID
-Phase 2: PLAN         → Planner agent analyzes ticket + codebase, produces plan
-                        ↳ User approval gate
-Phase 3: IMPLEMENT    → Implementer agent executes the approved plan
-Phase 4: VALIDATE     → Validator runs metadata → android → tests → detekt
-Phase 5: REVIEW       → Reviewer performs 10-dimension code review
-Phase 6: FIX          → Fixer resolves all blockers and major issues
-Phase 7: RE-VALIDATE  → Validator re-runs after fixes (must be clean)
-Phase 8: FINALIZE     → Stage, commit, push to remote
-Phase 9: OUTPUT       → Generate PR-ready summary
+Phase 1:  BRANCH       → Create feature branch from ticket ID
+Phase 2:  PLAN         → Planner analyzes ticket + codebase + pipeline memory
+                         ↳ User approval gate
+Phase 3:  IMPLEMENT    → Implementer executes plan with diff-aware skills
+Phase 4:  VALIDATE     → Validator runs parallel escalating checks
+Phase 5–7: REVIEW LOOP → Up to 3 iterations of REVIEW → FIX → RE-VALIDATE
+                         ↳ Exits early on APPROVE or low-confidence fix
+Phase 8:  FINALIZE     → Stage, commit, push to remote
+Phase 9:  METRICS      → Update pipeline metrics + recurring findings memory
+Phase 10: OUTPUT       → Generate PR-ready summary with review stats
 ```
+
+### Key improvements over a basic agent chain
+
+**Iterative review loop** — the REVIEW → FIX → RE-VALIDATE cycle runs up to 3 times. If the fixer introduces a new issue, the reviewer catches it. Exits early when the reviewer approves (zero blockers + zero major issues).
+
+**Diff-aware skill loading** — agents only load skills relevant to the changed code. A data-layer-only change won't load Compose UI or navigation skills, saving context and reducing noise.
+
+**Parallel validation** — the validator combines independent Gradle tasks into single invocations. Level 1 (metadata) runs for all modules in parallel. After that, Android compilation, unit tests, and detekt run concurrently.
+
+**Structured JSON contracts** — agents pass typed JSON between phases instead of free-form markdown. The planner's `scope` object drives decisions in every downstream agent (which skills to load, which validation levels to run, which review categories to prioritize).
+
+**Pipeline memory** — recurring review findings are persisted in `.claude/pipeline-memory.json`. The planner reads this and injects constraints into the plan so the implementer avoids repeating known mistakes. Stale patterns are automatically pruned after 10 runs.
+
+**Cost guardrails** — the reviewer classifies files by risk tier (high/medium/low) and adjusts review depth accordingly. For large PRs (>20 files), low-risk files are only scanned for blockers.
+
+**Fixer confidence scoring** — the fixer reports confidence (high/medium/low) for each fix. Low-confidence fixes pause the pipeline for human input instead of guessing.
+
+**Metrics tracking** — every run writes to `.claude/pipeline-metrics.json` with timing, findings, fix counts, and iteration data. Over time, this reveals patterns like average review iterations and first-pass approval rate.
 
 ### Validation Hooks
 
@@ -125,44 +143,52 @@ Two workflow templates automate PR review and fixes:
 
 ## Install
 
-### Skills only
+### Quick install (npx)
 
-Copy one or more skill folders into your project's agent skills directory.
+Run this from your KMP project root:
 
 ```bash
-# Single skill
-cp -r skills/kotlin-project-architecture-review .claude/skills/
-
-# All skills at once
-cp -r skills/* .claude/skills/
+npx kotlin-kmp-agent-skills
 ```
 
-### Full orchestration
+The interactive installer lets you choose what to install:
 
-Copy agents, commands, hooks, settings, and workflows into your project:
+1. **Everything** — skills + agents + commands + hooks + settings + GitHub workflows
+2. **Skills only** — just the 14 KMP skill definitions
+3. **Orchestration only** — agents + commands + hooks + settings (no workflows)
+4. **Pick individually** — choose each component
+
+Existing files are preserved by default (the installer asks before overwriting).
+
+### Manual install
+
+Copy individual components as needed:
 
 ```bash
-# Agents and command
+# Skills
+cp -r skills/* .claude/skills/
+
+# Agents + commands
 cp -r agents .claude/agents
 cp -r commands .claude/commands
 
 # Hooks
 cp -r hooks .claude/hooks
 
-# Settings (into .claude/)
+# Settings
 cp settings.json .claude/settings.json
 cp settings.local.json .claude/settings.local.json
 
 # GitHub Actions
 cp -r .github/workflows/* .github/workflows/
-
-# Skills
-cp -r skills/* .claude/skills/
 ```
 
-Then add `ANTHROPIC_API_KEY` to your repository secrets for the GitHub Actions workflows.
+### Post-install
 
-> The path `.claude/` is an example. The exact directory depends on the agent framework you're using.
+- Add `ANTHROPIC_API_KEY` to your repository secrets if you installed the GitHub workflows.
+- Edit the module-path patterns in `hooks/validate-compile.sh` and `hooks/validate-detekt.sh` to match your project's module structure.
+
+> The path `.claude/` is the default for Claude Code. Adjust if your agent framework uses a different directory.
 
 ---
 
