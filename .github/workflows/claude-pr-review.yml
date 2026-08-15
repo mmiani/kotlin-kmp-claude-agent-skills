@@ -60,5 +60,5 @@ jobs:
 
             Do NOT apply fixes. Review only.
           claude_args: "--model claude-sonnet-4-6 --max-turns 15"
-          additional_permissions: "Bash(*),Read(*),Write(*),Edit(*),Glob(*),Grep(*)"
+          additional_permissions: "Bash(git diff *),Bash(git show *),Read(*),Glob(*),Grep(*)"
           show_full_output: true

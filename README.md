@@ -63,79 +63,76 @@ These skills are intentionally opinionated and grounded in official Android, Kot
 
 ## Orchestration
 
-Beyond individual skills, this repository includes a full **agent pipeline** for automated ticket execution, code review, and fixes. The orchestration system is designed to work with Claude Code and can be installed alongside the skills.
+The optional orchestration package executes one ticket through isolated custom agents while keeping lifecycle authority in the main orchestrator.
 
-### Agent Pipeline
+### Genuine custom agents
 
-Five specialized agents work together in a structured pipeline. Agents communicate via structured JSON contracts and load skills dynamically based on what changed.
+Each role has Claude Code YAML frontmatter, an independent context, an explicit tool list, a permission mode, an effort level, a turn limit, and an agent-scoped `PreToolUse` guard.
 
-| Agent | Role | Definition |
-|-------|------|------------|
-| **Planner** | Analyzes tickets, inspects the codebase, loads pipeline memory, and produces structured plans with scope metadata | [`agents/planner.md`](agents/planner.md) |
-| **Implementer** | Executes approved plans, loads diff-aware skills, respects memory constraints from past runs | [`agents/implementer.md`](agents/implementer.md) |
-| **Validator** | Parallel escalating validation (metadata → android + tests + detekt concurrently → cross-module) | [`agents/validator.md`](agents/validator.md) |
-| **Reviewer** | Cost-aware code review with file priority tiers, context-filtered output, 10 categories, and recurring pattern detection | [`agents/reviewer.md`](agents/reviewer.md) |
-| **Fixer** | Targeted fixes with confidence scoring, strategy reuse from pipeline memory, self-validation, and human-review flagging | [`agents/fixer.md`](agents/fixer.md) |
+| Agent | Responsibility | Repository authority |
+|---|---|---|
+| [`kmp-ticket-planner`](agents/planner.md) | Confirm repository-grounded scope and validation intent | Read-only |
+| [`kmp-ticket-implementer`](agents/implementer.md) | Apply the user-approved plan | Scoped source edits; no lifecycle operations |
+| [`kmp-ticket-validator`](agents/validator.md) | Derive checks from the actual diff and configured targets | Read + verification commands |
+| [`kmp-ticket-reviewer`](agents/reviewer.md) | Independently review code and evidence | Read-only |
+| [`kmp-ticket-fixer`](agents/fixer.md) | Apply verified blocker/major fixes | Scoped source edits; no lifecycle operations |
 
-### 10-Phase Execution Pipeline
+The [`execute-ticket`](commands/execute-ticket.md) command invokes these agents through Claude Code's `Agent` tool. Reading their Markdown in one shared context is not considered role execution.
 
-The [`execute-ticket`](commands/execute-ticket.md) command orchestrates a full ticket lifecycle:
+### Fail-closed lifecycle
 
+```text
+Frame problem and resolve target/base
+  → fetch remote + enter isolated worktree
+  → preflight toolchain and delivery capabilities
+  → planner
+  → explicit user approval
+  → implementer
+  → actual-diff validator
+  → reviewer ↔ fixer ↔ validator (bounded)
+  → moving-base check + final validation/review
+  → machine finalization gate
+  → commit + push + pull request
 ```
-Phase 1:  BRANCH       → Create feature branch from ticket ID
-Phase 2:  PLAN         → Planner analyzes ticket + codebase + pipeline memory
-                         ↳ User approval gate
-Phase 3:  IMPLEMENT    → Implementer executes plan with diff-aware skills
-Phase 4:  VALIDATE     → Validator runs parallel escalating checks
-Phase 5–7: REVIEW LOOP → Up to 3 iterations of REVIEW → FIX → RE-VALIDATE
-                         ↳ Exits early on APPROVE or low-confidence fix
-Phase 8:  FINALIZE     → Stage, commit, push to remote
-Phase 9:  METRICS      → Update pipeline metrics + recurring findings memory
-Phase 10: OUTPUT       → Generate PR-ready summary with review stats
-```
 
-### Key improvements over a basic agent chain
+Unresolved validation failures, environment/configuration coverage gaps, security findings, blockers, or unapproved majors stop before commit, push, and PR creation. Exhausting the review budget is a blocked result, not warning-only success.
 
-**Iterative review loop** — the REVIEW → FIX → RE-VALIDATE cycle runs up to 3 times. If the fixer introduces a new issue, the reviewer catches it. Exits early when the reviewer approves (zero blockers + zero major issues).
+### Repository-neutral KMP validation
 
-**Diff-aware skill loading** — agents only load skills relevant to the changed code. A data-layer-only change won't load Compose UI or navigation skills, saving context and reducing noise.
+The pipeline discovers modules, source sets, targets, tasks, consumers, and static-analysis configuration from the target repository. It does not require a particular module layout, DI framework, UI toolkit, state-holder type, branch name, or fixed Gradle task.
 
-**Parallel validation** — the validator combines independent Gradle tasks into single invocations. Level 1 (metadata) runs for all modules in parallel. After that, Android compilation, unit tests, and detekt run concurrently.
+Validation starts from the actual diff against an immutable base SHA. Shared changes cover every configured consumer; platform changes cover their configured targets; unavailable Apple or Android environments remain incomplete until an authorized environment supplies evidence. See [`validation-policy.md`](orchestration/validation-policy.md).
 
-**Structured JSON contracts** — agents pass typed JSON between phases instead of free-form markdown. The planner's `scope` object drives decisions in every downstream agent (which skills to load, which validation levels to run, which review categories to prioritize).
+### Evidence and learning
 
-**Pipeline memory** — recurring review findings are persisted in `.claude/pipeline-memory.json`. The planner reads this and injects constraints into the plan so the implementer avoids repeating known mistakes. Stale patterns are automatically pruned after 10 runs.
+Role handoffs use the contracts in [`handoff-contracts.md`](orchestration/handoff-contracts.md). Each run writes an immutable uniquely named record under the Git common directory, avoiding shared-file races and product-PR noise.
 
-**Cost guardrails** — the reviewer classifies files by risk tier (high/medium/low) and adjusts review depth accordingly. For large PRs (>20 files), low-risk files are only scanned for blockers.
+Reusable policy is deliberately curated in [`pipeline-policy.json`](orchestration/pipeline-policy.json). Agents consume only relevant active entries with exact fingerprints. Runtime results propose sanitized candidates; they do not automatically rewrite shared policy.
 
-**Fixer confidence scoring** — the fixer reports confidence (high/medium/low) for each fix. Low-confidence fixes pause the pipeline for human input instead of guessing.
+### Enforced hooks
 
-**Context filtering at handoffs** — the reviewer produces a full output (for metrics/memory) and a filtered output (for the fixer). The fixer only receives blockers and major findings — no minor issues, strengths, or file review lists. This reduces context usage by 30-50% on the reviewer→fixer handoff and keeps the fixer focused on actionable work.
+| Hook | Purpose |
+|---|---|
+| [`guard-agent-boundaries.sh`](hooks/guard-agent-boundaries.sh) | Blocks role-incompatible shell commands and protected writes before execution |
+| [`lib/change-manifest.mjs`](hooks/lib/change-manifest.mjs) | Single Git-derived source of truth for the change manifest and its digest |
+| [`preflight.sh`](hooks/preflight.sh) | Reports repository base and available local toolchain capabilities |
+| [`collect-diff.sh`](hooks/collect-diff.sh) | Captures committed, staged, unstaged, deleted, renamed, and untracked changes |
+| [`change-digest.sh`](hooks/change-digest.sh) | Derives the Git-only digest that binds each verdict to the tree it was produced against |
+| [`check-finalization-gate.sh`](hooks/check-finalization-gate.sh) | Machine-checks validation/review evidence before lifecycle operations |
+| [`validate-orchestration.sh`](hooks/validate-orchestration.sh) | Checks installed agents, contracts, policy, and fail-closed command invariants |
+| [`finalize-summary.sh`](hooks/finalize-summary.sh) | Produces a read-only summary against the exact approved base |
 
-**Fix strategy reuse** — successful fix approaches are stored in pipeline memory indexed by error category. When the fixer encounters a familiar error pattern, it reuses a proven strategy instead of reasoning from scratch. Strategies track success rates and are pruned if they drop below 50% after 5+ applications.
+### Permission model
 
-**Fixer self-validation** — after applying each fix, the fixer runs a quick compilation check (`compileCommonMainKotlinMetadata`) before handing off to the full validator. This catches obvious regressions immediately, saving a full validation cycle when a fix introduces a new error.
+[`settings.json`](settings.json) is conservative and shareable. Read and validation operations are allowed; edits and repository lifecycle operations ask for approval; sensitive files and destructive Git/shell operations are denied. The package does not install a broad `settings.local.json` override.
 
-**Metrics tracking** — every run writes to `.claude/pipeline-metrics.json` with timing, findings, fix counts, strategy reuse stats, and iteration data. Over time, this reveals patterns like average review iterations and first-pass approval rate.
+The role guard enforces three further boundaries for the five ticket agents, independently of settings:
 
-### Validation Hooks
+- **No self-modification.** An agent cannot write to `.claude/`, the orchestration contracts, the hooks that constrain it, or `.github/workflows/`. Those files stay with the human-driven session.
+- **Inspection cannot become execution.** Read commands are rejected when an option would write a file, page through a helper process, or relocate the build (`git diff --output`, `git grep -O`, `rg --pre`, `gradle --init-script`, and similar).
+- **Validation cannot become delivery.** Gradle tasks, npm scripts, and `xcodebuild` actions that publish, upload, deploy, install, sign, or re-provision are blocked; the orchestrator alone performs delivery, with user approval.
 
-Shell scripts in [`hooks/`](hooks/) provide standalone validation:
-
-| Hook | Purpose | Usage |
-|------|---------|-------|
-| [`validate-compile.sh`](hooks/validate-compile.sh) | Metadata compilation for a module | `./validate-compile.sh <filepath>` |
-| [`validate-detekt.sh`](hooks/validate-detekt.sh) | Detekt code quality for a module | `./validate-detekt.sh <filepath>` |
-| [`validate-tests.sh`](hooks/validate-tests.sh) | Unit tests for a module | `./validate-tests.sh :module:path` |
-| [`finalize-summary.sh`](hooks/finalize-summary.sh) | Git state summary for end-of-pipeline | `./finalize-summary.sh` |
-
-### Permission Model
-
-Two settings files control what Claude Code can do:
-
-[**`settings.json`**](settings.json) (base, conservative) — allows read operations, git read commands, gradlew tasks, and file inspection. Denies editing secrets/keystores/credentials and destructive git operations. Includes a PostToolUse hook that logs file modifications.
-
-[**`settings.local.json`**](settings.local.json) (extended, for local/CI) — adds full edit/write, git commit/push/rebase, GitHub CLI, ADB commands, and destructive operations.
+Claude Code documentation: [custom subagents](https://code.claude.com/docs/en/sub-agents), [hooks](https://code.claude.com/docs/en/hooks), [permissions](https://code.claude.com/docs/en/permissions), and [worktrees](https://code.claude.com/docs/en/worktrees).
 
 ### GitHub Actions
 
@@ -143,7 +140,7 @@ Two workflow templates automate PR review and fixes:
 
 [**`claude-pr-review.yml`**](.github/workflows/claude-pr-review.yml) — triggers on PR open/sync to `main`. Reviews the diff for architecture, KMP correctness, state management, Compose performance, coroutines, and missing tests. Skips Claude's own PRs and `[skip-review]` titles.
 
-[**`claude-pr-fix.yml`**](.github/workflows/claude-pr-fix.yml) — triggers on `@claude fix` comments in PRs. Reads the diff and all review feedback, applies minimal targeted fixes, commits and pushes. Never expands scope.
+[**`claude-pr-fix.yml`**](.github/workflows/claude-pr-fix.yml) — triggers on `@claude fix` comments in PRs. Reads the diff and all review feedback, applies minimal targeted fixes, commits and pushes. Never expands scope. Because this job can write to the repository, it only responds to comments from an owner, member, or collaborator; comments from anyone else are ignored.
 
 ---
 
@@ -161,10 +158,12 @@ The interactive installer lets you choose what to install:
 
 1. **Everything** — skills + agents + commands + hooks + settings + GitHub workflows
 2. **Skills only** — just the 14 KMP skill definitions
-3. **Orchestration only** — agents + commands + hooks + settings (no workflows)
+3. **Orchestration only** — agents + command + hooks + contracts + conservative settings
 4. **Pick individually** — choose each component
 
 Existing files are preserved by default (the installer asks before overwriting).
+
+Commit or gitignore `.claude/` after installing. The pipeline derives the ticket change from the real working tree, so an untracked `.claude/` would otherwise be reported as part of the change under review.
 
 ### Manual install
 
@@ -181,9 +180,11 @@ cp -r commands .claude/commands
 # Hooks
 cp -r hooks .claude/hooks
 
+# Handoff, validation, and policy contracts
+cp -r orchestration .claude/orchestration
+
 # Settings
 cp settings.json .claude/settings.json
-cp settings.local.json .claude/settings.local.json
 
 # GitHub Actions
 cp -r .github/workflows/* .github/workflows/
@@ -192,7 +193,9 @@ cp -r .github/workflows/* .github/workflows/
 ### Post-install
 
 - Add `ANTHROPIC_API_KEY` to your repository secrets if you installed the GitHub workflows.
-- Edit the module-path patterns in `hooks/validate-compile.sh` and `hooks/validate-detekt.sh` to match your project's module structure.
+- Run `.claude/hooks/validate-orchestration.sh` from the target project.
+- Keep project-specific commands and architecture in repository guidance; the validator discovers configured Gradle modules, targets, and tasks at runtime.
+- Use a current Claude Code release with custom-agent frontmatter, hooks, and `EnterWorktree` support.
 
 > The path `.claude/` is the default for Claude Code. Adjust if your agent framework uses a different directory.
 

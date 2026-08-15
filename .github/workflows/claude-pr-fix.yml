@@ -14,11 +14,14 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Only run when someone comments "@claude fix" on a PR
+    # Only run when a trusted maintainer comments "@claude fix" on a PR.
+    # This job has write access and pushes commits, so an untrusted commenter
+    # must never be able to trigger it.
     if: |
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '@claude fix') &&
-      github.event.comment.user.login != 'claude[bot]'
+      github.event.comment.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,4 +52,4 @@ jobs:
             - Keep changes minimal and traceable
             - If a fix would significantly expand scope, leave a comment instead
           claude_args: "--model claude-sonnet-4-6 --max-turns 10"
-          additional_permissions: "Bash(*),Read(*),Write(*),Edit(*),Glob(*),Grep(*)"
+          additional_permissions: "Bash(./gradlew *),Bash(git status*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Read(*),Write(*),Edit(*),Glob(*),Grep(*)"

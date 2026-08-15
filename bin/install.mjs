@@ -49,12 +49,17 @@ const COMPONENTS = {
   hooks: {
     src: 'hooks',
     dest: '.claude/hooks',
-    label: 'Hooks (compile, detekt, tests, finalize)',
+    label: 'Hooks (role guard, preflight, orchestration validation, finalize)',
+  },
+  orchestration: {
+    src: 'orchestration',
+    dest: '.claude/orchestration',
+    label: 'Orchestration contracts and curated policy',
   },
   settings: {
     src: null, // handled specially
     dest: '.claude',
-    label: 'Settings (permissions + hook config)',
+    label: 'Conservative settings (permissions + hook config)',
   },
   workflows: {
     src: '.github/workflows',
@@ -143,11 +148,11 @@ async function main() {
   let selected = {};
 
   if (mode === '1') {
-    selected = { skills: true, agents: true, commands: true, hooks: true, settings: true, workflows: true };
+    selected = { skills: true, agents: true, commands: true, hooks: true, orchestration: true, settings: true, workflows: true };
   } else if (mode === '2') {
     selected = { skills: true };
   } else if (mode === '3') {
-    selected = { agents: true, commands: true, hooks: true, settings: true };
+    selected = { agents: true, commands: true, hooks: true, orchestration: true, settings: true };
   } else if (mode === '4') {
     console.log('');
     for (const [key, comp] of Object.entries(COMPONENTS)) {
@@ -176,10 +181,11 @@ async function main() {
     if (!selected[key]) continue;
 
     if (key === 'settings') {
-      // Copy settings files individually
+      // Install only the conservative shared settings. Local overrides are
+      // intentionally left to each user and are never shipped by this package.
       const dest = join(PROJECT_ROOT, comp.dest);
       mkdirSync(dest, { recursive: true });
-      for (const file of ['settings.json', 'settings.local.json']) {
+      for (const file of ['settings.json']) {
         const srcPath = join(PKG_ROOT, file);
         const destPath = join(dest, file);
         if (existsSync(destPath) && !overwrite) {
@@ -229,8 +235,9 @@ async function main() {
 
   if (selected.hooks) {
     console.log('  → Hook scripts in .claude/hooks/ are executable.');
-    console.log('  → Edit the module-path patterns in validate-compile.sh / validate-detekt.sh');
-    console.log('    to match your project\'s module structure.');
+    console.log('  → Run .claude/hooks/validate-orchestration.sh after installation.');
+    console.log('  → Commit or gitignore .claude/ so installed files are not');
+    console.log('    counted as part of a ticket change.');
   }
 
   console.log('');
