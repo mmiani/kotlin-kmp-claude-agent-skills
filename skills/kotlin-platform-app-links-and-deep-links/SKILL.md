@@ -1,6 +1,7 @@
 ---
 name: kotlin-platform-app-links-and-deep-links
 description: Use when designing, implementing, or reviewing Android deep links, web links, and App Links in KMP projects — intent-filter design, host verification, manifest scope, and assetlinks.json configuration.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani

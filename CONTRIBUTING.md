@@ -30,11 +30,20 @@ skills/
 
 Each `SKILL.md` must begin with YAML frontmatter and include at least:
 
-- `name` — must match the folder name exactly
-- `description` — one sentence stating when the skill should be used; this is the trigger text read by agents
+- `name` — must match the folder name exactly. In a plugin, `name` becomes the command segment, so a mismatch silently renames the skill when the package is distributed
+- `description` — must open with `Use when ...`, because this is the trigger text Claude reads to decide whether to load the skill. Keep it under 1024 characters; the skill listing truncates description text at 1536
+- `allowed-tools` — read-only inspection tools the skill needs, normally `Read, Grep, Glob`
 - `license` — must be `Apache-2.0` for public submissions
 - `metadata.author`
 - `metadata.version` — use semver, e.g. `"1.0.0"`
+
+Use only these fields. They are the ones the [Agent Skills](https://agentskills.io) spec allows, so the skills stay loadable on claude.ai and through the Skills API, where an unknown key is a hard error. Claude Code-only fields such as `paths`, `when_to_use`, and `context` are deliberately avoided for that reason.
+
+## Size
+
+A loaded skill stays in context for the rest of the session, so every line is a recurring token cost. Keep `SKILL.md` to the decision rules an agent must apply, and move long reference material into a separate file in the skill folder that `SKILL.md` points to, so it loads only when needed. `npm test` fails any `SKILL.md` over 35,000 bytes.
+
+Every skill must also appear in the README catalog, and the README skill-count badge must match.
 
 ## Naming
 

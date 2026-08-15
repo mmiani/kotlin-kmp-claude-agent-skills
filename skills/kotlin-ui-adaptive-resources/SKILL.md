@@ -1,6 +1,7 @@
 ---
 name: kotlin-ui-adaptive-resources
 description: Use when designing, implementing, or reviewing adaptive Compose UI for KMP or Android projects — window-size layouts, adaptive navigation, canonical layouts, multi-window support, and resource strategy.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani

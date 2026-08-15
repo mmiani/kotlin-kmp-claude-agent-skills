@@ -6,7 +6,7 @@
 **A public catalog of AI agent skills for Kotlin Multiplatform projects.**
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/skills-14-brightgreen.svg)](#skills)
+[![Skills](https://img.shields.io/badge/skills-15-brightgreen.svg)](#skills)
 [![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/docs/multiplatform/multiplatform-discover-project.html)
 [![Compose Multiplatform](https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white)](https://kotlinlang.org/docs/multiplatform/compose-multiplatform.html)
 
@@ -23,6 +23,7 @@ These skills are intentionally opinionated and grounded in official Android, Kot
 | Skill | What it does |
 |---|---|
 | [`kotlin-project-architecture-review`](skills/kotlin-project-architecture-review/SKILL.md) | Reviews KMP architecture, PRs, and layer boundaries. Produces a verdict, issue list, and concrete recommendations. |
+| [`kotlin-kmp-code-review`](skills/kotlin-kmp-code-review/SKILL.md) | Reviews implemented KMP/Compose code — business-logic placement, state correctness, concurrency, Compose quality, security, and resilience. |
 | [`kotlin-project-feature-implementation`](skills/kotlin-project-feature-implementation/SKILL.md) | Guides feature implementation with a pre-coding checklist, layer-by-layer rules, and state pipeline design. Forward-looking only — not a review skill. |
 | [`kotlin-project-modularization`](skills/kotlin-project-modularization/SKILL.md) | Reviews or designs module boundaries, dependency direction, visibility control, and granularity. |
 | [`kotlin-project-state-management`](skills/kotlin-project-state-management/SKILL.md) | Covers state-holder pattern selection across KMP targets — ViewModel, shared presenter, MVI — including effect handling and `UiState` modeling. |
