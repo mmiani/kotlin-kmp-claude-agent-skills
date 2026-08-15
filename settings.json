@@ -4,39 +4,52 @@
       "Read(**)",
       "Glob(**)",
       "Grep(**)",
+      "Agent(kmp-ticket-planner)",
+      "Agent(kmp-ticket-implementer)",
+      "Agent(kmp-ticket-validator)",
+      "Agent(kmp-ticket-reviewer)",
+      "Agent(kmp-ticket-fixer)",
       "Bash(git status*)",
-      "Bash(git branch*)",
-      "Bash(git checkout*)",
-      "Bash(git switch*)",
-      "Bash(git fetch*)",
       "Bash(git log*)",
       "Bash(git diff*)",
       "Bash(git show*)",
-      "Bash(git add*)",
-      "Bash(git stash*)",
-      "Bash(git remote*)",
+      "Bash(git blame*)",
+      "Bash(git rev-parse*)",
+      "Bash(git merge-base*)",
+      "Bash(git ls-files*)",
+      "Bash(git ls-tree*)",
+      "Bash(git remote -v)",
+      "Bash(git branch --show-current)",
+      "Bash(git worktree list*)",
       "Bash(./gradlew *)",
-      "Bash(ls*)",
-      "Bash(find*)",
-      "Bash(tree*)",
-      "Bash(pwd)",
-      "Bash(wc*)",
-      "Bash(file*)",
-      "Bash(stat*)",
-      "Bash(cat*)",
-      "Bash(head*)",
-      "Bash(tail*)",
-      "Bash(sort*)",
-      "Bash(uniq*)",
-      "Bash(cut*)",
-      "Bash(grep*)",
-      "Bash(rg*)",
-      "Bash(mkdir*)",
-      "Bash(touch*)"
+      "Bash(java -version)",
+      "Bash(node --version)",
+      "Bash(gh auth status*)",
+      "Bash(.claude/hooks/preflight.sh *)",
+      "Bash(.claude/hooks/collect-diff.sh *)",
+      "Bash(.claude/hooks/change-digest.sh *)",
+      "Bash(.claude/hooks/check-finalization-gate.sh *)",
+      "Bash(.claude/hooks/validate-orchestration.sh*)",
+      "Bash(.claude/hooks/finalize-summary.sh *)"
+    ],
+    "ask": [
+      "Edit(**)",
+      "Write(**)",
+      "Bash(git fetch*)",
+      "Bash(git switch*)",
+      "Bash(git branch*)",
+      "Bash(git worktree add*)",
+      "Bash(git worktree remove*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(gh pr create*)"
     ],
     "deny": [
       "Edit(*.env)",
       "Write(*.env)",
+      "Edit(**/.env*)",
+      "Write(**/.env*)",
       "Edit(*.keystore)",
       "Write(*.keystore)",
       "Edit(*.jks)",
@@ -51,21 +64,38 @@
       "Write(**/signing*)",
       "Bash(rm -rf*)",
       "Bash(git push --force*)",
+      "Bash(git push -f*)",
       "Bash(git reset --hard*)",
-      "Bash(./gradlew clean build)"
+      "Bash(git clean*)",
+      "Bash(git stash*)",
+      "Bash(./gradlew clean build*)",
+      "Bash(./gradlew *publish*)",
+      "Bash(./gradlew *upload*)",
+      "Bash(./gradlew *deploy*)",
+      "Bash(./gradlew *distribut*)",
+      "Bash(./gradlew install*)",
+      "Bash(./gradlew wrapper*)",
+      "Bash(./gradlew --init-script*)",
+      "Bash(./gradlew -I *)",
+      "Bash(npm publish*)",
+      "Bash(npm run deploy*)",
+      "Bash(npm run publish*)"
     ]
   },
   "hooks": {
-    "PostToolUse": [
+    "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'File modified: '\"$CLAUDE_FILE_PATH\""
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-agent-boundaries.sh"
           }
         ]
       }
     ]
+  },
+  "worktree": {
+    "baseRef": "fresh"
   }
 }

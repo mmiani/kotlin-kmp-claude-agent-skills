@@ -93,6 +93,22 @@ Please explain:
 - what category it belongs to
 - which official or primary references informed it, if relevant
 
+## Agent and orchestration changes
+
+Reusable orchestration must remain repository-neutral:
+
+- custom agents declare explicit frontmatter, tools, permission mode, and enforced boundaries
+- planner and reviewer roles are read-only
+- implementer and fixer roles cannot manage branches, commits, pushes, pull requests, or external trackers
+- validation is derived from the actual diff and discovered KMP targets/tasks rather than a fixed module layout
+- Android, Apple, JVM, JS, Wasm, desktop, and other targets are required only when configured and affected
+- unavailable required coverage blocks completion instead of becoming a skipped pass
+- review-cycle exhaustion and unresolved blocker/security findings fail closed
+- reusable policy contains sanitized patterns, never ticket bodies, source excerpts, private URLs, logs, or customer data
+- per-run evidence uses unique immutable records so concurrent worktrees cannot overwrite each other
+
+Run `npm test` and `npm run validate:orchestration` before opening a pull request.
+
 
 ## Build guidance scope
 

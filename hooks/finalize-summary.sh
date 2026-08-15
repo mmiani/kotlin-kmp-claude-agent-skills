@@ -1,43 +1,34 @@
-#!/bin/bash
-# Finalization hook — outputs git state and summary context
-# Run at the end of the pipeline to produce final status.
-# Usage: ./finalize-summary.sh
+#!/usr/bin/env bash
+# Read-only finalization summary against the exact approved base.
+# Usage: finalize-summary.sh <base-ref-or-sha>
 
 set -euo pipefail
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel)"
-cd "$PROJECT_ROOT"
+BASE=${1:-}
+if [ -z "$BASE" ]; then
+  echo "usage: $0 <base-ref-or-sha>" >&2
+  exit 2
+fi
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+git rev-parse --verify "$BASE^{commit}" >/dev/null
 
 BRANCH=$(git branch --show-current)
-BASE="main"
+BASE_SHA=$(git rev-parse "$BASE^{commit}")
 
-echo "═══════════════════════════════════════════"
-echo " FINALIZATION SUMMARY"
-echo "═══════════════════════════════════════════"
-echo ""
-echo "Branch: $BRANCH"
-echo "Base:   $BASE"
-echo ""
-
-echo "── Recent commits (this branch vs $BASE) ──"
-git log "$BASE".."$BRANCH" --oneline 2>/dev/null || git log --oneline -5
-echo ""
-
-echo "── Files changed (vs $BASE) ──"
-git diff --stat "$BASE".."$BRANCH" 2>/dev/null || git diff --stat HEAD~1
-echo ""
-
-echo "── Working tree status ──"
+echo "FINALIZATION SUMMARY"
+echo "repository_root=$ROOT"
+echo "branch=$BRANCH"
+echo "base=$BASE"
+echo "base_sha=$BASE_SHA"
+echo "head_sha=$(git rev-parse HEAD)"
+echo
+echo "Commits against approved base"
+git log --oneline "$BASE_SHA..HEAD"
+echo
+echo "Files against approved base, including working tree"
+git diff --stat "$BASE_SHA"
+echo
+echo "Working tree"
 git status --short
-echo ""
-
-echo "── Uncommitted changes ──"
-UNCOMMITTED=$(git status --porcelain | wc -l | tr -d ' ')
-if [ "$UNCOMMITTED" -gt 0 ]; then
-  echo "⚠ $UNCOMMITTED uncommitted file(s)"
-  git status --porcelain
-else
-  echo "✓ Working tree clean"
-fi
-echo ""
-echo "═══════════════════════════════════════════"
