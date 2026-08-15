@@ -364,6 +364,125 @@ test('machine finalization gate rejects stale and fabricated evidence', () => {
   }
 });
 
+test('subagent stop guard rejects malformed, mismatched, and stale contracts', () => {
+  const { fixture, base, cleanup } = gateFixture();
+  const guardPath = join(root, 'hooks', 'check-role-contract.mjs');
+  const state = changeState(fixture, base);
+  const stop = (agent_type, last_assistant_message, extra = {}) => run('node', [guardPath], {
+    input: JSON.stringify({
+      hook_event_name: 'SubagentStop',
+      agent_type,
+      cwd: fixture,
+      last_assistant_message,
+      ...extra,
+    }),
+  });
+  const contract = (overrides = {}) => JSON.stringify({
+    contract_version: 1,
+    role: 'validator',
+    verdict: 'PASS',
+    repository: { worktree: fixture, branch: state.branch, base_sha: base },
+    digest: state.digest,
+    ...overrides,
+  });
+
+  try {
+    // A well-formed contract for this exact tree lets the role finish.
+    assert.equal(stop('kmp-ticket-validator', `Here is the result:\n\`\`\`json\n${contract()}\n\`\`\`\nAll targets passed.`).status, 0);
+    // Roles outside the pipeline are untouched.
+    assert.equal(stop('Explore', 'no contract here').status, 0);
+
+    // No contract at all.
+    assert.equal(stop('kmp-ticket-validator', 'Everything passed, trust me.').status, 2);
+    // Verdict outside the role's vocabulary.
+    assert.equal(stop('kmp-ticket-validator', contract({ verdict: 'APPROVE' })).status, 2);
+    // Wrong role identity.
+    assert.equal(stop('kmp-ticket-validator', contract({ role: 'reviewer' })).status, 2);
+    // Identity that does not match the checkout.
+    assert.equal(stop('kmp-ticket-validator', contract({
+      repository: { worktree: fixture, branch: 'some-other-branch', base_sha: base },
+    })).status, 2);
+    assert.equal(stop('kmp-ticket-validator', contract({
+      repository: { worktree: fixture, branch: state.branch, base_sha: 'a'.repeat(40) },
+    })).status, 2);
+    // A gating verdict without the digest that binds it to a tree.
+    assert.equal(stop('kmp-ticket-validator', contract({ digest: undefined })).status, 2);
+    assert.equal(stop('kmp-ticket-validator', contract({ digest: 'b'.repeat(64) })).status, 2);
+
+    // A symlinked spelling of the same checkout is the same checkout.
+    assert.equal(stop('kmp-ticket-validator', contract({
+      repository: { worktree: `${fixture}/`, branch: state.branch, base_sha: base },
+    })).status, 0);
+    // A genuinely different path is still rejected.
+    assert.equal(stop('kmp-ticket-validator', contract({
+      repository: { worktree: tmpdir(), branch: state.branch, base_sha: base },
+    })).status, 2);
+
+    // Roles that do not gate delivery are not required to carry a digest.
+    assert.equal(stop('kmp-ticket-implementer', JSON.stringify({
+      contract_version: 1,
+      role: 'implementer',
+      verdict: 'COMPLETE',
+      repository: { worktree: fixture, branch: state.branch, base_sha: base },
+    })).status, 0);
+
+    // The loop guard bounds this to one correction attempt.
+    assert.equal(stop('kmp-ticket-validator', 'still no contract', { stop_hook_active: true }).status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('lifecycle commands carry re-derived run invariants', () => {
+  const { fixture, base, cleanup } = gateFixture();
+  const hook = join(root, 'hooks', 'inject-run-invariants.mjs');
+  const state = changeState(fixture, base);
+  const fire = (command, tool_name = 'Bash') => run('node', [hook], {
+    input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name, cwd: fixture, tool_input: { command } }),
+  });
+
+  try {
+    // Non-lifecycle work is left alone.
+    assert.equal(fire('./gradlew test').stdout, '');
+    assert.equal(fire('anything', 'Read').stdout, '');
+
+    const before = fire('git commit -m "ticket"');
+    assert.equal(before.status, 0);
+    const payload = JSON.parse(before.stdout);
+    assert.equal(payload.hookSpecificOutput.hookEventName, 'PreToolUse');
+    const context = payload.hookSpecificOutput.additionalContext;
+    assert.match(context, new RegExp(`head_sha=${state.headSha}`));
+    assert.match(context, new RegExp(`branch=${state.branch}`));
+    assert.match(context, /FINALIZATION_GATE=PASS/);
+    // Never blocks, so a broken evidence store cannot strand a run.
+    assert.doesNotMatch(context, /recorded_base_sha/);
+
+    // With run evidence present, the recorded state and live digest both appear.
+    const runsDir = join(fixture, '.git', 'claude-pipeline-runs');
+    mkdirSync(runsDir, { recursive: true });
+    writeFileSync(join(runsDir, 'run.json'), JSON.stringify({
+      run_id: 'example-1',
+      status: 'in_progress',
+      repository: { branch: state.branch, base_sha: base, target_branch: 'main' },
+      diff: { digest: state.digest },
+      validation: { verdict: 'PASS' },
+      review: { verdict: 'APPROVE' },
+    }));
+    const withEvidence = JSON.parse(fire('gh pr create --base main').stdout).hookSpecificOutput.additionalContext;
+    assert.match(withEvidence, new RegExp(`recorded_base_sha=${base}`));
+    assert.match(withEvidence, new RegExp(`live_change_digest=${state.digest}`));
+    assert.match(withEvidence, /recorded_review=APPROVE/);
+    assert.doesNotMatch(withEvidence, /WARNING: recorded evidence is stale/);
+
+    // Once the tree moves on, the injected context says so.
+    writeFileSync(join(fixture, 'Example.kt'), 'edited after review\n');
+    const stale = JSON.parse(fire('git push origin HEAD').stdout).hookSpecificOutput.additionalContext;
+    assert.match(stale, /WARNING: recorded evidence is stale/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('clean orchestration install is complete, conservative, and non-destructive', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'kmp-install-fixture-'));
   try {
@@ -378,7 +497,10 @@ test('clean orchestration install is complete, conservative, and non-destructive
       '.claude/hooks/guard-agent-boundaries.mjs',
       '.claude/hooks/change-digest.sh',
       '.claude/hooks/check-finalization-gate.sh',
+      '.claude/hooks/check-role-contract.sh',
+      '.claude/hooks/inject-run-invariants.sh',
       '.claude/hooks/lib/change-manifest.mjs',
+      '.claude/hooks/lib/role-contracts.mjs',
       '.claude/orchestration/handoff-contracts.md',
       '.claude/orchestration/validation-policy.md',
       '.claude/orchestration/pipeline-policy.json',

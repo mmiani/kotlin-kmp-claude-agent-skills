@@ -4,7 +4,7 @@ description: Validate a Kotlin Multiplatform change from its actual diff across 
 tools: Read, Grep, Glob, Bash, Skill
 permissionMode: default
 model: inherit
-effort: low
+effort: high
 maxTurns: 60
 hooks:
   PreToolUse:
@@ -12,6 +12,10 @@ hooks:
       hooks:
         - type: command
           command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-agent-boundaries.sh'
+  Stop:
+    - hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-role-contract.sh'
 ---
 
 # KMP Ticket Validator

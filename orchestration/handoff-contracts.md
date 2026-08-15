@@ -20,7 +20,7 @@ Every role output contains:
 }
 ```
 
-The orchestrator verifies these fields before accepting any other claims.
+The orchestrator verifies these fields before accepting any other claims, and a `SubagentStop` hook enforces the envelope independently: a role cannot finish while its contract is missing, carries the wrong role or an unknown verdict, names a branch, worktree, or base SHA that is not this checkout, or, for the validator and reviewer, omits the digest of the tree it judged or carries one that no longer matches. The role is handed the reasons and gets one attempt to correct itself.
 
 ## Orchestrator-to-role handoff
 
