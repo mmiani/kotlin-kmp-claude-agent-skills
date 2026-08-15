@@ -1,9 +1,11 @@
 ---
 name: kotlin-kmp-refactor-safety
-description: Refactor discipline for existing codebases. Enforces scope control, migration safety, compatibility, observability, and tests to keep refactors reviewable and low-risk.
+description: Use when the task is primarily a refactor, migration, reliability hardening, or architectural cleanup of existing Kotlin Multiplatform code — scope control, behavioral preservation, migration safety, compatibility, observability, and rollback planning.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
-  version: "1.0.0"
+  author: Mariano Miani
+  version: "1.1.0"
 ---
 
 # KMP Refactor Safety Skill
