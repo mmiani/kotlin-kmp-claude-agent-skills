@@ -1,6 +1,7 @@
 ---
 name: kotlin-project-bugfix
 description: Use when diagnosing and fixing bugs in a Kotlin Multiplatform project. Focus on root-cause analysis, minimal safe fixes, KMP correctness, UI/state/data/persistence/concurrency issues, and regression prevention.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani

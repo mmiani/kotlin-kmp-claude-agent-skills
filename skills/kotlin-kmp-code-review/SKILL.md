@@ -1,6 +1,7 @@
 ---
-name: kotlin-project-code-review
+name: kotlin-kmp-code-review
 description: Use when reviewing implemented Kotlin Multiplatform / Compose Multiplatform code for architecture consistency, business-logic placement, state correctness, concurrency, Compose quality, design-system usage, security, performance, resilience, and maintainability.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani

@@ -1,6 +1,7 @@
 ---
 name: kotlin-ui-compose-multiplatform
 description: Use when designing, implementing, or reviewing shared UI in Compose Multiplatform projects, including state-driven architecture, composable decomposition, layout/modifier discipline, adaptive behavior, and previewable shared UI in common source sets.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani
