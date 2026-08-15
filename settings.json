@@ -92,6 +92,26 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-agent-boundaries.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/inject-run-invariants.sh"
+          },
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/inject-run-invariants.sh"
+          },
+          {
+            "type": "command",
+            "if": "Bash(gh pr create*)",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/inject-run-invariants.sh"
+          }
+        ]
       }
     ]
   },

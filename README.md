@@ -114,7 +114,10 @@ Reusable policy is deliberately curated in [`pipeline-policy.json`](orchestratio
 | Hook | Purpose |
 |---|---|
 | [`guard-agent-boundaries.sh`](hooks/guard-agent-boundaries.sh) | Blocks role-incompatible shell commands and protected writes before execution |
+| [`check-role-contract.sh`](hooks/check-role-contract.sh) | Refuses to let a role finish on a malformed, mismatched, or stale contract |
+| [`inject-run-invariants.sh`](hooks/inject-run-invariants.sh) | Re-derives the run's base, branch, HEAD, and digest before a lifecycle command |
 | [`lib/change-manifest.mjs`](hooks/lib/change-manifest.mjs) | Single Git-derived source of truth for the change manifest and its digest |
+| [`lib/role-contracts.mjs`](hooks/lib/role-contracts.mjs) | Machine-checkable definition of what each role must return |
 | [`preflight.sh`](hooks/preflight.sh) | Reports repository base and available local toolchain capabilities |
 | [`collect-diff.sh`](hooks/collect-diff.sh) | Captures committed, staged, unstaged, deleted, renamed, and untracked changes |
 | [`change-digest.sh`](hooks/change-digest.sh) | Derives the Git-only digest that binds each verdict to the tree it was produced against |

@@ -12,6 +12,10 @@ hooks:
       hooks:
         - type: command
           command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-agent-boundaries.sh'
+  Stop:
+    - hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-role-contract.sh'
 ---
 
 # KMP Ticket Planner
