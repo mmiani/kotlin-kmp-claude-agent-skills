@@ -1,6 +1,7 @@
 ---
 name: kotlin-navigation-compose-multiplatform
 description: Use when designing, implementing, or reviewing navigation in Compose Multiplatform projects — route modeling, back stack ownership, argument passing, NavOptions, conditional flows, deep links, and adaptive navigation UI.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani

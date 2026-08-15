@@ -1,6 +1,7 @@
 ---
 name: kotlin-platform-kmp-bridges
 description: Use when designing, implementing, or reviewing platform-specific integrations in KMP projects, including source-set placement, hierarchical sharing, expect/actual usage, platform API access, and shared-to-native abstraction boundaries.
+allowed-tools: Read, Grep, Glob
 license: Apache-2.0
 metadata:
   author: Mariano Miani
@@ -64,7 +65,7 @@ Flag as a concern when:
 
 ### 2. Intermediate source-set usage
 
-Kotlin explicitly supports sharing code among similar targets through hierarchical project structure and intermediate source sets. Examples include `iosMain` for several iOS targets.  (https://kotlinlang.org/docs/multiplatform/multiplatform-share-on-platforms.html)(https://kotlinlang.org/docs/multiplatform/multiplatform-share-on-platforms.html)
+Kotlin explicitly supports sharing code among similar targets through hierarchical project structure and intermediate source sets. Examples include `iosMain` for several iOS targets.  (https://kotlinlang.org/docs/multiplatform/multiplatform-share-on-platforms.html)
 
 Check whether:
 - similar targets reuse logic through intermediate source sets
@@ -78,7 +79,7 @@ Flag as a concern when:
 
 ### 3. Default hierarchy template vs manual hierarchy
 
-The hierarchy docs recommend the default hierarchy template for most projects and warn that explicit `dependsOn()` edges cancel it unless you deliberately reapply or opt out.  (https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)(https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)
+The hierarchy docs recommend the default hierarchy template for most projects and warn that explicit `dependsOn()` edges cancel it unless you deliberately reapply or opt out.  (https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)
 
 Check whether:
 - the project uses the default hierarchy template when it fits
@@ -134,7 +135,7 @@ Kotlin requires:
 - the `expect` declaration in common code
 - matching `actual` declarations for all relevant targets
 - the same package for `expect` and `actual`
-- no implementation in the `expect` declaration.  (https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)(https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)
+- no implementation in the `expect` declaration.  (https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)
 
 Check whether:
 - signatures match correctly
@@ -150,7 +151,7 @@ Flag as a concern when:
 
 ### 7. Avoid overusing expect/actual classes
 
-Kotlin explicitly recommends relying on standard language constructs wherever possible. The `expect`/`actual` mechanism overall is stable, but `expect`/`actual` *classes* (non-annotation `expect` class declarations) carry restrictions: in Kotlin 2.0+, non-annotation `expect` classes must have a corresponding `actual` class (not a typealias) in each target, and their member declarations must match. This makes `expect`/`actual` classes heavier to maintain than `expect` functions or properties. Always check the current Kotlin docs for the latest stability status of this feature.  (https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)(https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)
+Kotlin explicitly recommends relying on standard language constructs wherever possible. The `expect`/`actual` mechanism overall is stable, but `expect`/`actual` *classes* (non-annotation `expect` class declarations) carry restrictions: in Kotlin 2.0+, non-annotation `expect` classes must have a corresponding `actual` class (not a typealias) in each target, and their member declarations must match. This makes `expect`/`actual` classes heavier to maintain than `expect` functions or properties. Always check the current Kotlin docs for the latest stability status of this feature.  (https://kotlinlang.org/docs/multiplatform/multiplatform-expect-actual.html)
 
 Check whether:
 - interfaces, functions, properties, or factories would be enough
@@ -209,7 +210,7 @@ Flag as a concern when:
 
 ### 11. Platform-family API access
 
-The hierarchy docs note that intermediate source sets can access APIs available for the targets they compile to, and Kotlin/Native platform libraries can be used from such shared native source sets.  (https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)(https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)
+The hierarchy docs note that intermediate source sets can access APIs available for the targets they compile to, and Kotlin/Native platform libraries can be used from such shared native source sets.  (https://kotlinlang.org/docs/multiplatform/multiplatform-hierarchy.html)
 
 Check whether:
 - iOS-family code uses `iosMain` or another appropriate intermediate source set when one implementation covers the whole family
