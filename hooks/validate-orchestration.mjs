@@ -53,6 +53,7 @@ for (const [file, expected] of Object.entries(expectedAgents)) {
   }
   if (/bypassPermissions/.test(yaml)) errors.push(`${file} bypasses permissions`);
   if (!yaml.includes('guard-agent-boundaries.sh')) errors.push(`${file} does not wire the role guard`);
+  if (!yaml.includes('check-role-contract.sh')) errors.push(`${file} does not wire the contract check`);
 }
 
 const command = read(commandFile);
@@ -71,6 +72,10 @@ for (const file of ['handoff-contracts.md', 'validation-policy.md', 'pipeline-po
 for (const file of [
   'guard-agent-boundaries.sh',
   'guard-agent-boundaries.mjs',
+  'check-role-contract.sh',
+  'check-role-contract.mjs',
+  'inject-run-invariants.sh',
+  'inject-run-invariants.mjs',
   'collect-diff.sh',
   'change-digest.sh',
   'change-digest.mjs',
@@ -79,6 +84,7 @@ for (const file of [
   'preflight.sh',
   'finalize-summary.sh',
   join('lib', 'change-manifest.mjs'),
+  join('lib', 'role-contracts.mjs'),
 ]) {
   read(join(root, 'hooks', file));
 }
