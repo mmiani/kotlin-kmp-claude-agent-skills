@@ -15,6 +15,11 @@ jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # secrets are not readable from a job-level `if`, so surface it as an env
+    # value the review step can gate on. A fork or a repository that has not set
+    # the key skips the review instead of failing a check nobody can fix.
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     # Skip reviews triggered by Claude's own commits to prevent loops
     if: |
       github.event.pull_request.user.login != 'claude[bot]' &&
@@ -29,7 +34,12 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.event.pull_request.base.ref }}
 
+      - name: Report skipped review
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: echo "ANTHROPIC_API_KEY is not set for this repository; skipping the Claude review." >> "$GITHUB_STEP_SUMMARY"
+
       - uses: anthropics/claude-code-action@v1
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           trigger_phrase: ""
