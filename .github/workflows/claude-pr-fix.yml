@@ -14,6 +14,11 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # secrets are not readable from a job-level `if`, so surface it as an env
+    # value the fix step can gate on. A repository that has not set the key
+    # reports that instead of failing after the commenter asked for a fix.
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     # Only run when a trusted maintainer comments "@claude fix" on a PR.
     # This job has write access and pushes commits, so an untrusted commenter
     # must never be able to trigger it.
@@ -27,7 +32,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Report skipped fix
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: echo "ANTHROPIC_API_KEY is not set for this repository; skipping the Claude fix." >> "$GITHUB_STEP_SUMMARY"
+
       - uses: anthropics/claude-code-action@v1
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
