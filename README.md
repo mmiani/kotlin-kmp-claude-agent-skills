@@ -18,6 +18,10 @@ These skills are intentionally opinionated and grounded in official Android, Kot
 
 ## Skills
 
+Each skill is a `SKILL.md` whose frontmatter stays inside the portable [Agent Skills](https://agentskills.io) field set, so it loads in Claude Code, on claude.ai, and through the Skills API without changes.
+
+A loaded skill stays in context for the rest of the session, so larger skills keep `SKILL.md` to what always applies — goals, procedure, and a routing table — and move per-dimension detail into a `reference/` folder that is read only when the change under review touches it. [`kotlin-kmp-code-review`](skills/kotlin-kmp-code-review/) is the worked example.
+
 ### 🏗️ Architecture & Implementation
 
 | Skill | What it does |
@@ -68,7 +72,7 @@ The optional orchestration package executes one ticket through isolated custom a
 
 ### Genuine custom agents
 
-Each role has Claude Code YAML frontmatter, an independent context, an explicit tool list, a permission mode, an effort level, a turn limit, and an agent-scoped `PreToolUse` guard.
+Each role has Claude Code YAML frontmatter, an independent context, an explicit tool list, a permission mode, an effort level, a turn limit, an agent-scoped `PreToolUse` guard, and a `SubagentStop` check that refuses to let the role finish on a contract that does not match this checkout.
 
 | Agent | Responsibility | Repository authority |
 |---|---|---|
@@ -107,6 +111,8 @@ Validation starts from the actual diff against an immutable base SHA. Shared cha
 ### Evidence and learning
 
 Role handoffs use the contracts in [`handoff-contracts.md`](orchestration/handoff-contracts.md). Each run writes an immutable uniquely named record under the Git common directory, avoiding shared-file races and product-PR noise.
+
+Evidence is bound to the tree it describes. A change digest derived only from Git — the status, path, rename source, and content id of every changed and untracked file — is recorded with each validator and reviewer verdict. The finalization gate recomputes it rather than trusting the record, so a verdict produced before a later edit is provably stale and cannot reach commit, push, or PR. Editing the evidence file does not satisfy the gate; only re-running the affected gates does.
 
 Reusable policy is deliberately curated in [`pipeline-policy.json`](orchestration/pipeline-policy.json). Agents consume only relevant active entries with exact fingerprints. Runtime results propose sanitized candidates; they do not automatically rewrite shared policy.
 
@@ -161,7 +167,7 @@ npx kotlin-kmp-agent-skills
 The interactive installer lets you choose what to install:
 
 1. **Everything** — skills + agents + commands + hooks + settings + GitHub workflows
-2. **Skills only** — just the 14 KMP skill definitions
+2. **Skills only** — just the 15 KMP skill definitions
 3. **Orchestration only** — agents + command + hooks + contracts + conservative settings
 4. **Pick individually** — choose each component
 

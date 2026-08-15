@@ -34,7 +34,7 @@ const COMPONENTS = {
   skills: {
     src: 'skills',
     dest: '.claude/skills',
-    label: 'Skills (14 KMP agent skills)',
+    label: 'Skills (15 KMP agent skills)',
   },
   agents: {
     src: 'agents',

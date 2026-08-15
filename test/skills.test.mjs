@@ -107,6 +107,25 @@ test('every skill is listed in the README catalog', () => {
   assert.equal(Number(badge), skills.length, 'README badge does not match the number of skills');
 });
 
+test('every stated skill count matches reality', () => {
+  // The badge was tested while the prose and the installer label drifted, so
+  // every place that states a count is checked, not just the one.
+  const sources = {
+    'README.md': readFileSync(join(root, 'README.md'), 'utf8'),
+    'bin/install.mjs': readFileSync(join(root, 'bin', 'install.mjs'), 'utf8'),
+    'CONTRIBUTING.md': readFileSync(join(root, 'CONTRIBUTING.md'), 'utf8'),
+  };
+  for (const [file, text] of Object.entries(sources)) {
+    for (const match of text.matchAll(/(\d+)\s+(?:KMP\s+)?(?:agent\s+)?skill(?:\s+definitions)?\b/gi)) {
+      assert.equal(
+        Number(match[1]),
+        skills.length,
+        `${file}: claims ${match[1]} skills but there are ${skills.length} ("${match[0]}")`,
+      );
+    }
+  }
+});
+
 test('skill content is public-safe and free of broken link artifacts', () => {
   // Covers reference files too: they ship to users and are read at review time.
   for (const name of skills) {
