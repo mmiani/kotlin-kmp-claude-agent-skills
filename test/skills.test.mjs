@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,7 +37,15 @@ const LEGACY_CATEGORY_NAMES = new Set(['kotlin-kmp-code-review', 'kotlin-kmp-ref
 
 // Ratchet, not a target: no skill may grow past today's largest. Splitting the
 // biggest skills into loaded-on-demand reference files should lower this.
-const MAX_SKILL_BYTES = 35_000;
+const MAX_SKILL_BYTES = 31_000;
+
+function skillFiles(name) {
+  const walk = (directory) => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? walk(path) : [path];
+  });
+  return walk(join(skillsDir, name));
+}
 
 test('every skill has a valid, portable frontmatter contract', () => {
   assert.ok(skills.length > 0, 'no skills found');
@@ -98,15 +108,65 @@ test('every skill is listed in the README catalog', () => {
 });
 
 test('skill content is public-safe and free of broken link artifacts', () => {
+  // Covers reference files too: they ship to users and are read at review time.
   for (const name of skills) {
-    const { raw } = frontmatter(name);
-    for (const forbidden of ['/Users/', 'IdeaProjects/', 'Source/Github/', 'atlassian.net']) {
-      assert.ok(!raw.includes(forbidden), `${name}: found non-public path or host ${forbidden}`);
+    for (const path of skillFiles(name)) {
+      const raw = readFileSync(path, 'utf8');
+      const label = `${name}/${path.split(`${name}/`)[1] ?? 'SKILL.md'}`;
+      for (const forbidden of ['/Users/', 'IdeaProjects/', 'Source/Github/', 'atlassian.net']) {
+        assert.ok(!raw.includes(forbidden), `${label}: found non-public path or host ${forbidden}`);
+      }
+      const issueKeys = [...raw.matchAll(/\b([A-Z][A-Z0-9]{1,9})-\d+\b/g)]
+        .map((match) => match[1])
+        .filter((key) => !['EXAMPLE', 'TICKET', 'PROJECT', 'ISO', 'RFC', 'UTF', 'SHA', 'HTTP', 'OAUTH', 'SPDX', 'API'].includes(key));
+      assert.deepEqual([...new Set(issueKeys)], [], `${label}: found what looks like a real issue-tracker key`);
+      assert.doesNotMatch(raw, /\((https?:\/\/[^)]+)\)\(\1\)/, `${label}: duplicated link artifact`);
     }
-    const issueKeys = [...raw.matchAll(/\b([A-Z][A-Z0-9]{1,9})-\d+\b/g)]
-      .map((match) => match[1])
-      .filter((key) => !['EXAMPLE', 'TICKET', 'PROJECT', 'ISO', 'RFC', 'UTF', 'SHA', 'HTTP', 'OAUTH', 'SPDX', 'API'].includes(key));
-    assert.deepEqual([...new Set(issueKeys)], [], `${name}: found what looks like a real issue-tracker key`);
-    assert.doesNotMatch(raw, /\((https?:\/\/[^)]+)\)\(\1\)/, `${name}: duplicated link artifact`);
+  }
+});
+
+test('installing skills ships their supporting files', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'kmp-skills-install-'));
+  try {
+    writeFileSync(join(fixture, 'settings.gradle.kts'), 'rootProject.name = "fixture"\n');
+    const install = spawnSync('node', [join(root, 'bin', 'install.mjs')], {
+      cwd: fixture,
+      encoding: 'utf8',
+      input: '2\nn\n',
+    });
+    assert.equal(install.status, 0, install.stderr);
+
+    // A skill whose reference files did not install would point at nothing.
+    for (const name of skills) {
+      for (const path of skillFiles(name)) {
+        const relative = path.slice(skillsDir.length + 1);
+        assert.ok(
+          statSync(join(fixture, '.claude/skills', relative), { throwIfNoEntry: false })?.isFile(),
+          `${relative} was not installed`,
+        );
+      }
+    }
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test('every referenced supporting file exists and is reachable', () => {
+  for (const name of skills) {
+    const { body } = frontmatter(name);
+    const referenced = [...body.matchAll(/\]\((reference\/[^)]+)\)/g)].map((match) => match[1]);
+    for (const target of new Set(referenced)) {
+      assert.ok(
+        statSync(join(skillsDir, name, target), { throwIfNoEntry: false })?.isFile(),
+        `${name}: SKILL.md points at ${target}, which does not exist`,
+      );
+    }
+
+    // A supporting file nothing points at will never be loaded.
+    const supporting = skillFiles(name).filter((path) => !path.endsWith('SKILL.md'));
+    for (const path of supporting) {
+      const relative = path.split(`${name}/`)[1];
+      assert.ok(referenced.includes(relative), `${name}: ${relative} is never referenced from SKILL.md`);
+    }
   }
 });
