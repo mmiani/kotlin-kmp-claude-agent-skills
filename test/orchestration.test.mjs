@@ -550,15 +550,25 @@ test('orchestration content is public-safe and architecture-neutral', () => {
     ...walk(join(root, 'commands')),
     ...walk(join(root, 'hooks')),
     ...walk(join(root, 'orchestration')),
+    ...walk(join(root, '.github')),
+    join(root, 'README.md'),
+    join(root, 'CONTRIBUTING.md'),
+    join(root, 'settings.json'),
   ];
   const content = relevant.map((path) => readFileSync(path, 'utf8')).join('\n');
 
   for (const forbidden of ['/Users/', 'IdeaProjects/', 'Source/Github/', 'atlassian.net']) {
     assert.ok(!content.includes(forbidden), `found non-public path or host: ${forbidden}`);
   }
-  for (const prefix of [['M', 'O', 'B', '-'].join(''), ['W', 'E', 'B', '-'].join('')]) {
-    assert.doesNotMatch(content, new RegExp(`${prefix}\\d+`, 'i'));
-  }
+
+  // Any issue key shaped like a real tracker reference, not a named list of
+  // them: naming the keys to exclude would itself disclose which trackers the
+  // author works in, and would miss every key not on the list.
+  const PLACEHOLDER_KEYS = new Set(['EXAMPLE', 'TICKET', 'PROJECT', 'ISO', 'RFC', 'UTF', 'SHA', 'HTTP', 'OAUTH', 'SPDX']);
+  const issueKeys = [...content.matchAll(/\b([A-Z][A-Z0-9]{1,9})-\d+\b/g)]
+    .map((match) => match[1])
+    .filter((key) => !PLACEHOLDER_KEYS.has(key));
+  assert.deepEqual([...new Set(issueKeys)], [], 'found what looks like a real issue-tracker key');
   for (const marker of (process.env.PRIVATE_MARKERS || '').split(',').map((value) => value.trim()).filter(Boolean)) {
     assert.ok(!content.toLowerCase().includes(marker.toLowerCase()), 'found externally supplied private marker');
   }
